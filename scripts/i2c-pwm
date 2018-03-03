@@ -1,0 +1,14 @@
+#!/bin/bash
+
+IF=1
+ADDR=0x40
+FREQ=50
+
+PRESCALER=$((25000000/4096/FREQ-1))
+
+# Set prescaler (PWM freq)
+i2cset -y "$IF" "$ADDR" 0xFE "$(printf "0x%x" $PRESCALER)"
+
+# Enable
+i2cset -y "$IF" "$ADDR" 0x00 0x21
+
