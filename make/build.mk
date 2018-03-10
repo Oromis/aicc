@@ -12,7 +12,7 @@ endif
 # Builds a sub-project depending on it's type
 build:
 ifeq "$(project_type)" "rust"
-	# Rust project => Invoke cargo
+# Rust project => Invoke cargo
 	@cargo build --release --target aarch64-unknown-linux-gnu
 else
 	$(error Project type $(project_type) not supported yet :|)
