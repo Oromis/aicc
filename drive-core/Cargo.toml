@@ -1,0 +1,6 @@
+[package]
+name = "drive-core"
+version = "0.1.0"
+authors = ["david.bauske@googlemail.com"]
+
+[dependencies]

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# The Jetson TX2 has a super-annoying WiFi power save feature. This script turns it off or on.
+# If it is on, the Jetson will consume less power, but the WiFi connection will feel sluggish
+# and unstable (~1.5s latency).
+# If if is off, the Jetson will consume more power, but WiFi will feel great!
+# If is a reasonable idea to put this into /etc/rc.local to disable power save mode after every Jetson restart.
+
+if [ "$#" -lt 1 ]; then
+  echo "Usage: $0 <on|off>"
+  exit 1
+fi
+
+sudo iw dev wlan0 set power_save "$1"
+
+iw dev wlan0 get power_save
+
