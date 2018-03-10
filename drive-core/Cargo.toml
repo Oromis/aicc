@@ -4,3 +4,5 @@ version = "0.1.0"
 authors = ["david.bauske@googlemail.com"]
 
 [dependencies]
+i2cdev = "0.3.2"
+nix = "0.10.0"

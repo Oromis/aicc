@@ -26,7 +26,7 @@ flash: build
 # Will block until the executable terminates.
 # Will NOT re-build NOR re-flash the executable. To do this, call `make flash run`
 run:
-	@ssh $(host) "cd $(base_dir); ./$(exe)"
+	@ssh $(host) "cd $(base_dir); sudo ./$(exe)"
 
 # Build, flash and run the project
 all: build flash run
