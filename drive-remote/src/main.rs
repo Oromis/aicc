@@ -51,6 +51,11 @@ fn main() {
 
   let mut socket = TcpStream::connect(host).unwrap();
 
+  println!("Connected to AICC.\n\
+    Use the arrow keys to remote-control the car.\n\
+    Stop the program using Ctrl+C.\n\
+    Have fun! :)");
+
   // Disables echoing as long as this object lives (until the end of main())
   let _stdout = stdout().into_raw_mode().unwrap();
 
@@ -129,8 +134,11 @@ fn main() {
 
     let throttle_msg = serialize(&MessageType::SetThrottle(throttle)).unwrap();
     socket.write(&throttle_msg[..]).unwrap();
-//    println!("Throttle: {}, Steering: {}\r", throttle, steering);
   }
+
+  // Clean shutdown => Send Bye message
+  let bye_msg = serialize(&MessageType::Bye).unwrap();
+  socket.write(&bye_msg[..]).unwrap();
 
   unistd::close(fd).unwrap();
 }

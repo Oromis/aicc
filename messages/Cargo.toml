@@ -10,3 +10,4 @@ path = "src/lib.rs"
 [dependencies]
 serde = "1.0.29"
 serde_derive = "1.0.29"
+bincode = "1.0.0"

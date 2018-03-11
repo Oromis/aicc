@@ -2,7 +2,8 @@
 #[derive(Debug, Serialize, Deserialize)]
 pub enum MessageType {
   SetSteering(f32),
-  SetThrottle(f32)
+  SetThrottle(f32),
+  Bye,
 }
 
 #[cfg(test)]
@@ -62,6 +63,16 @@ mod tests {
     let msg = deserialize(&raw).unwrap();
     match msg {
       MessageType::SetThrottle(actual) => assert_eq!(actual, 0.521f32),
+      _ => panic!("Deserialized the wrong value")
+    }
+  }
+
+  #[test]
+  fn deserialize_bye() {
+    let raw = [2, 0, 0, 0];
+    let msg = deserialize(&raw).unwrap();
+    match msg {
+      MessageType::Bye => {},
       _ => panic!("Deserialized the wrong value")
     }
   }

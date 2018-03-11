@@ -1,0 +1,10 @@
+[Unit]
+Description=AICC drive core service
+
+[Service]
+Type=simple
+User=nvidia
+ExecStart=/home/nvidia/aicc/drive-core/drive-core
+
+[Install]
+WantedBy=multi-user.target

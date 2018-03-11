@@ -123,3 +123,11 @@ impl PwmDriver {
     self.throttle.set_value(value, &mut self.device)
   }
 }
+
+impl Drop for PwmDriver {
+  fn drop(&mut self) {
+    // Put the driver in sleep mode when we shut down
+    println!("Shutting down PWM driver ...");
+    self.device.smbus_write_byte_data(REG_MODE1, 0x11).unwrap();
+  }
+}
