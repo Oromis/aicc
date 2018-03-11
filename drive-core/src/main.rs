@@ -80,6 +80,8 @@ fn main() {
             }
             e => {
               println!("Reading from socket failed. Dropping client. {:?}", e);
+              device.set_steering(0f32).unwrap();
+              device.set_throttle(0f32).unwrap();
               break;
             }
           }

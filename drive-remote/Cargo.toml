@@ -1,0 +1,9 @@
+[package]
+name = "drive-remote"
+version = "0.1.0"
+authors = ["David <david.bauske@googlemail.com>"]
+
+[dependencies]
+termion = "1.5.1"
+nix = "0.10.0"
+byteorder = "1.2.1"

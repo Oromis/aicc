@@ -8,7 +8,7 @@
 #   make all 									- Builds, flashes and runs all sub-projects
 
 # List of all supported sub-projects
-sub_projects = drive-core
+sub_projects = drive-core drive-remote
 
 # Filters all sub-projects out of the argument list. If the resulting list is not equal to the original list,
 # then we want to run a sub-project command and this variable contains all commands to send to this sub-project
