@@ -1,0 +1,12 @@
+[package]
+name = "messages"
+version = "0.1.0"
+authors = ["David <david.bauske@googlemail.com>"]
+
+[lib]
+name = "messages"
+path = "src/lib.rs"
+
+[dependencies]
+serde = "1.0.29"
+serde_derive = "1.0.29"

@@ -7,3 +7,7 @@ authors = ["David <david.bauske@googlemail.com>"]
 termion = "1.5.1"
 nix = "0.10.0"
 byteorder = "1.2.1"
+serde = "1.0.29"
+bincode = "1.0.0"
+
+messages = { path = "../messages" }

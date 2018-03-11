@@ -1,11 +1,15 @@
 extern crate termion;
 extern crate nix;
 extern crate byteorder;
+extern crate messages;
+extern crate serde;
+extern crate bincode;
 
 use std::env;
 use std::thread;
 use std::time;
-use std::io::{ stdout, Cursor };
+use std::net::{ TcpStream };
+use std::io::{ stdout, Cursor, Write };
 
 use termion::raw::IntoRawMode;
 
@@ -16,6 +20,9 @@ use nix::Error;
 use nix::errno::Errno;
 
 use byteorder::{ ReadBytesExt, LittleEndian };
+use bincode::serialize;
+
+use messages::drive_core::MessageType;
 
 const KEY_CODE_LEFT: u16 = 105;
 const KEY_CODE_RIGHT: u16 = 106;
@@ -37,10 +44,12 @@ fn main() {
   let ref host = if args.len() >= 3 {
     &args[2]
   } else {
-    "localhost"
+    "localhost:41330"
   };
 
   println!("Connecting to {}", host);
+
+  let mut socket = TcpStream::connect(host).unwrap();
 
   // Disables echoing as long as this object lives (until the end of main())
   let _stdout = stdout().into_raw_mode().unwrap();
@@ -106,13 +115,21 @@ fn main() {
       };
     }
 
+    // Make sure we don't send messages too quickly (20Hz should be fine)
     let now = time::Instant::now();
     let delta = now - last_send_time;
     if delta < MIN_SEND_INTERVAL {
       thread::sleep(MIN_SEND_INTERVAL - delta);
     }
     last_send_time = time::Instant::now();
-    println!("Throttle: {}, Steering: {}\r", throttle, steering);
+
+    // Send the steering value
+    let steering_msg = serialize(&MessageType::SetSteering(steering)).unwrap();
+    socket.write(&steering_msg[..]).unwrap();
+
+    let throttle_msg = serialize(&MessageType::SetThrottle(throttle)).unwrap();
+    socket.write(&throttle_msg[..]).unwrap();
+//    println!("Throttle: {}, Steering: {}\r", throttle, steering);
   }
 
   unistd::close(fd).unwrap();

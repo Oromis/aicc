@@ -18,6 +18,7 @@ else
 	$(error Project type $(project_type) not supported yet :|)
 endif
 
+ifdef exe
 # Flashes the project to the target board, building it beforehand if necessary.
 flash: build
 	@scp $(build_dir)/$(exe) $(host):$(base_dir)
@@ -27,6 +28,7 @@ flash: build
 # Will NOT re-build NOR re-flash the executable. To do this, call `make flash run`
 run:
 	@ssh $(host) "cd $(base_dir); sudo ./$(exe)"
+endif
 
 # Build, flash and run the project
 all: build flash run

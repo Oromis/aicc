@@ -1,17 +1,16 @@
 extern crate i2cdev;
 
-#[macro_use]
-extern crate serde_derive;
 extern crate serde;
 extern crate bincode;
 extern crate bufstream;
 
+extern crate messages;
+
 mod error;
 mod pwm_driver;
-mod message_type;
 
 use pwm_driver::*;
-use message_type::MessageType;
+use messages::drive_core::MessageType;
 
 use std::net::*;
 use std::io;
