@@ -4,6 +4,12 @@ self_dir = $(dir $(lastword $(MAKEFILE_LIST)))
 
 include $(self_dir)/variables.mk
 
+# Build for the target board by default (perform cross-compiling)
+for_target ?= true
+
+# Don't build for the host by default
+for_host ?= false
+
 # Sets the default build directory to the cargo target directory if the project type is rust
 ifeq "$(project_type)" "rust"
 build_dir ?= target/aarch64-unknown-linux-gnu/release
@@ -13,7 +19,12 @@ endif
 build:
 ifeq "$(project_type)" "rust"
 # Rust project => Invoke cargo
+ifeq "$(for_target)" "true"
 	@cargo build --release --target aarch64-unknown-linux-gnu
+endif
+ifeq "$(for_host)" "true"
+	@cargo build --release
+endif
 else
 	$(error Project type $(project_type) not supported yet :|)
 endif
