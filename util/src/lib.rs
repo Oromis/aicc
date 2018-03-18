@@ -3,7 +3,7 @@ extern crate serde_derive;
 extern crate serde;
 extern crate bincode;
 extern crate byteorder;
-extern crate time;
+extern crate chrono;
 
 #[macro_use]
 extern crate lazy_static;

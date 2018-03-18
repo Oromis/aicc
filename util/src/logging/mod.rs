@@ -3,8 +3,10 @@ mod data_types;
 use self::data_types::TypeInfo;
 use super::timing::milliseconds;
 
+use std::fs;
 use std::fs::File;
-use std::path::Path;
+use std::path::{ Path, PathBuf };
+use std::time::{ SystemTime, UNIX_EPOCH };
 use std::io;
 use std::io::Write;
 use std::marker::{ PhantomData, Sized };
@@ -12,7 +14,7 @@ use std::marker::{ PhantomData, Sized };
 use serde::Serialize;
 use bincode::serialize;
 use byteorder::*;
-use time;
+use chrono::Local;
 
 pub struct LogStream<T> where T: TypeInfo + Sized {
   file: File,
@@ -46,7 +48,8 @@ impl<T> LogStream<T> where T: TypeInfo + Sized + Serialize {
     file.write_all(type_str.as_bytes())?;
 
     // Time
-    file.write_u64::<LittleEndian>(time::now().to_timespec().sec as u64)?;
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    file.write_u64::<LittleEndian>(now.as_secs())?;
 
     // Tags - we don't use them (yet?)
     file.write_u16::<LittleEndian>(0)?;
@@ -58,6 +61,13 @@ impl<T> LogStream<T> where T: TypeInfo + Sized + Serialize {
     let record = LogRecord { time: milliseconds(), value };
     Ok(self.file.write_all(&serialize(&record).unwrap())?)
   }
+}
+
+pub fn get_timestamped_path() -> io::Result<PathBuf> {
+  let time = Local::now().format("%Y-%m-%d_%H-%M").to_string();
+  let path = Path::new("/var/log/aicc").join(time);
+  fs::create_dir_all(&path)?;
+  Ok(path)
 }
 
 #[cfg(test)]
@@ -98,8 +108,8 @@ mod tests {
     reader.read_exact(&mut type_buffer).unwrap();
     assert_eq!("int".as_bytes(), &type_buffer[..]);
 
-    let timestamp = reader.read_u64::<LittleEndian>().unwrap() as i64;
-    assert!((time::now().to_timespec().sec - timestamp).abs() <= 1);
+    let timestamp = reader.read_u64::<LittleEndian>().unwrap();
+    assert!(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - timestamp <= 1);
 
     assert_eq!(0, reader.read_u16::<LittleEndian>().unwrap());
 

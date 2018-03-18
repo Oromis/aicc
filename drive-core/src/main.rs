@@ -15,12 +15,11 @@ mod variable;
 use pwm_driver::*;
 use variable::Variable;
 use messages::drive_core::MessageType;
-use util::logging::LogStream;
+use util::logging::{ self, LogStream };
 
 use std::net::*;
 use std::io;
 use std::rc::*;
-use std::path::Path;
 use std::time::Duration;
 use std::sync::atomic::{ AtomicBool, Ordering };
 use bufstream::BufStream;
@@ -30,8 +29,6 @@ use std::cell::RefCell;
 const PWM_DRIVER_ADDRESS: u16 = 0x40;
 const PWM_FREQUENCY: f32 = 50f32;
 const I2C_DEVICE_PATH: &str = "/dev/i2c-1";
-
-const LOG_PATH: &str = "/var/log/aicc";
 
 static RUNNING: AtomicBool = AtomicBool::new(true);
 
@@ -47,8 +44,9 @@ fn accept_connection(listener: &TcpListener) -> io::Result<BufStream<TcpStream>>
 }
 
 fn create_log_for(var: &mut Variable<f32>, name: &str) -> io::Result<()> {
+  let path = logging::get_timestamped_path()?;
   let mut log_stream: LogStream<f32> = LogStream::new(
-    &Path::new(LOG_PATH).join(format!("{}.ebl", name)),
+    &path.join(format!("{}.ebl", name)),
     &format!("drive-core_{}", name))?;
 
   // Log the variable's initial value
