@@ -64,7 +64,7 @@ install: flash $(service)
 # Copy the service file to the target
 	@scp $(service) $(host):$(target_dir)
 # Connect to the target and install the service file into the operating system
-	@ssh $(host) "sudo ln -sf $(target_dir)/$(service_filename) /etc/systemd/system/$(service_filename); sudo systemctl daemon-reload"
+	@ssh $(host) "sudo systemctl enable $(target_dir)/$(service_filename); sudo systemctl daemon-reload"
 endif
 
 # Build, flash and run the project

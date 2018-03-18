@@ -1,7 +1,10 @@
 use error::*;
 
+use std::rc::*;
+
 use i2cdev::core::*;
 use i2cdev::linux::LinuxI2CDevice;
+use std::cell::RefCell;
 
 // Register numbers specific to the PCA9685 PWM driver
 const REG_MODE1: u8 = 0x00;
@@ -42,63 +45,78 @@ pub struct PwmArgs {
 pub struct PwmChannel {
   config: PwmChannelArgs,
   channel_num: u8,
+  device: Weak<RefCell<LinuxI2CDevice>>,
 }
 
 pub struct PwmDriver {
-  device: LinuxI2CDevice,
-  steering: PwmChannel,
-  throttle: PwmChannel,
+  device: Rc<RefCell<LinuxI2CDevice>>,
+  pub steering: Rc<RefCell<PwmChannel>>,
+  pub throttle: Rc<RefCell<PwmChannel>>,
 }
 
 impl PwmChannel {
-  fn new(device: &mut LinuxI2CDevice, args: PwmChannelArgs, channel_num: u8) -> Result<PwmChannel, I2CError> {
+  fn new(device: Weak<RefCell<LinuxI2CDevice>>, args: PwmChannelArgs, channel_num: u8) -> Result<PwmChannel, I2CError> {
     let channel_base_reg = calc_channel_base_reg(channel_num);
+
+    let dev = device.upgrade().expect("device reference invalid during PwmChannel construction!");
+    let mut i2c = dev.borrow_mut();
 
     // Set the "on" register to 0 for this channel
     // (we expect the PWM signal to go high at the beginning of each cycle)
-    device.smbus_write_word_data(channel_base_reg, 0x0000)?;
+    i2c.smbus_write_word_data(channel_base_reg, 0x0000)?;
 
     // Set the channel to its neutral position
-    device.smbus_write_word_data(channel_base_reg + 2, calc_duty_cycle(args.neutral))?;
+    i2c.smbus_write_word_data(channel_base_reg + 2, calc_duty_cycle(args.neutral))?;
 
-    Ok(PwmChannel { config: args, channel_num })
+    Ok(PwmChannel { config: args, channel_num, device })
   }
 
   /// Sets the position of the servo connected to this PWM channel
   /// value: The new position for the servo in the range [-1:1]. 0 Means neutral.
   /// device: The I2C device to set the value on
-  fn set_value(&self, value: f32, device: &mut LinuxI2CDevice) -> Result<(), I2CError> {
-    device.smbus_write_word_data(
-      calc_channel_base_reg(self.channel_num) + 2,
-      calc_duty_cycle(self.config.neutral + value * self.config.range))?;
-    Ok(())
+  pub fn set_value(&mut self, value: f32) -> Result<(), I2CError> {
+    match self.device.upgrade() {
+      Some(dev) => {
+        let mut i2c = dev.borrow_mut();
+        i2c.smbus_write_word_data(
+          calc_channel_base_reg(self.channel_num) + 2,
+          calc_duty_cycle(self.config.neutral + value * self.config.range))?;
+        Ok(())
+      }
+      None => Err(I2CError::ReferenceInvalid)
+    }
   }
 }
 
 impl PwmDriver {
   pub fn new(path: &str, args: PwmArgs) -> Result<PwmDriver, I2CError> {
-    let mut device = LinuxI2CDevice::new(path, args.address)?;
+    let device = Rc::new(RefCell::new(LinuxI2CDevice::new(path, args.address)?));
+    {
+      let mut i2c = device.borrow_mut();
 
-    match device.smbus_read_byte_data(REG_MODE1) {
-      // We don't really care about the actual register contents.
-      // This read operation was just done to see whether we're able to communicate at all.
-      Ok(_) => (),
-      Err(e) => return Err(I2CError::Setup(SetupError::new(
-        &format!("Could not communicate with PWM driver. Please check the connection [{:?}]", e))))
-    };
+      match i2c.smbus_read_byte_data(REG_MODE1) {
+        // We don't really care about the actual register contents.
+        // This read operation was just done to see whether we're able to communicate at all.
+        Ok(_) => (),
+        Err(e) => return Err(I2CError::Setup(SetupError::new(
+          &format!("Could not communicate with PWM driver. Please check the connection [{:?}]", e))))
+      };
 
-    // Put the driver in sleep mode (the is required to configure the PWM frequency prescaler)
-    device.smbus_write_byte_data(REG_MODE1, 0x11)?;
+      // Put the driver in sleep mode (the is required to configure the PWM frequency prescaler)
+      i2c.smbus_write_byte_data(REG_MODE1, 0x11)?;
 
-    // Configure the PWM frequency prescaler
-    device.smbus_write_byte_data(REG_PRESCALER, calc_prescaler(args.freq))?;
+      // Configure the PWM frequency prescaler
+      i2c.smbus_write_byte_data(REG_PRESCALER, calc_prescaler(args.freq))?;
 
-    // Start normal device operation
-    device.smbus_write_byte_data(REG_MODE1, 0x21)?;
+      // Start normal device operation
+      i2c.smbus_write_byte_data(REG_MODE1, 0x21)?;
+    }
 
     // Initialize the two PWM channels we need to control our car
-    let steering = PwmChannel::new(&mut device, args.steering, CHANNEL_STEERING)?;
-    let throttle = PwmChannel::new(&mut device, args.throttle, CHANNEL_THROTTLE)?;
+    let steering = Rc::new(RefCell::new(
+      PwmChannel::new(Rc::downgrade(&device), args.steering, CHANNEL_STEERING)?));
+    let throttle = Rc::new(RefCell::new(
+      PwmChannel::new(Rc::downgrade(&device), args.throttle, CHANNEL_THROTTLE)?));
 
     Ok(PwmDriver {
       device,
@@ -106,28 +124,12 @@ impl PwmDriver {
       throttle,
     })
   }
-
-  /// Sets the steering angle of the car.
-  /// value: The steering angle in the range [-1:1].
-  ///         0 means straight, -1 means full left, 1 means full right
-  pub fn set_steering(&mut self, value: f32) -> Result<(), I2CError> {
-    self.steering.set_value(-value, &mut self.device)
-  }
-
-  /// Sets the throttle / brake value of the car
-  /// value: The new value for the car's propulsion system in the range [-1:1]
-  ///         0 means neither throttle nor brake,
-  ///         1 is full throttle,
-  ///         -1 is full braking (or reverse if the car was not moving forward)
-  pub fn set_throttle(&mut self, value: f32) -> Result<(), I2CError> {
-    self.throttle.set_value(value, &mut self.device)
-  }
 }
 
 impl Drop for PwmDriver {
   fn drop(&mut self) {
     // Put the driver in sleep mode when we shut down
     println!("Shutting down PWM driver ...");
-    self.device.smbus_write_byte_data(REG_MODE1, 0x11).unwrap();
+    self.device.borrow_mut().smbus_write_byte_data(REG_MODE1, 0x11).unwrap();
   }
 }

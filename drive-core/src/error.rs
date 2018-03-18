@@ -29,7 +29,8 @@ impl fmt::Display for SetupError {
 #[derive(Debug)]
 pub enum I2CError {
   I2CDevice(LinuxI2CError),
-  Setup(SetupError)
+  Setup(SetupError),
+  ReferenceInvalid,
 }
 
 impl From<LinuxI2CError> for I2CError {
