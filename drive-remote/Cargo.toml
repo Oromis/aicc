@@ -9,5 +9,6 @@ nix = "0.10.0"
 byteorder = "1.2.1"
 serde = "1.0.29"
 bincode = "1.0.0"
+clap = "2.31.1"
 
 messages = { path = "../messages" }

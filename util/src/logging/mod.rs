@@ -1,4 +1,5 @@
-mod data_types;
+pub mod data_types;
+pub mod connect;
 
 use self::data_types::TypeInfo;
 use super::timing::milliseconds;
@@ -9,14 +10,14 @@ use std::path::{ Path, PathBuf };
 use std::time::{ SystemTime, UNIX_EPOCH };
 use std::io;
 use std::io::Write;
-use std::marker::{ PhantomData, Sized };
+use std::marker::{ PhantomData };
 
 use serde::Serialize;
 use bincode::serialize;
 use byteorder::*;
 use chrono::Local;
 
-pub struct LogStream<T> where T: TypeInfo + Sized {
+pub struct LogStream<T> {
   file: File,
   _p: PhantomData<T>,
 }
@@ -27,7 +28,7 @@ struct LogRecord<T> {
   value: T,
 }
 
-impl<T> LogStream<T> where T: TypeInfo + Sized + Serialize {
+impl<T> LogStream<T> where T: TypeInfo + Serialize {
   pub fn new(path: &Path, name: &str) -> io::Result<LogStream<T>> {
     let mut file = File::create(path)?;
 

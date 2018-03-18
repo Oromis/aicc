@@ -10,21 +10,21 @@ extern crate util;
 
 mod error;
 mod pwm_driver;
-mod variable;
 
 use pwm_driver::*;
-use variable::Variable;
 use messages::drive_core::MessageType;
-use util::logging::{ self, LogStream };
+use util::logging::connect::create_log_for;
+use util::variable::Variable;
 
 use std::net::*;
 use std::io;
 use std::rc::*;
+use std::cell::RefCell;
 use std::time::Duration;
 use std::sync::atomic::{ AtomicBool, Ordering };
+
 use bufstream::BufStream;
 use bincode::deserialize_from;
-use std::cell::RefCell;
 
 const PWM_DRIVER_ADDRESS: u16 = 0x40;
 const PWM_FREQUENCY: f32 = 50f32;
@@ -43,30 +43,11 @@ fn accept_connection(listener: &TcpListener) -> io::Result<BufStream<TcpStream>>
   return Ok(BufStream::new(socket));
 }
 
-fn create_log_for(var: &mut Variable<f32>, name: &str) -> io::Result<()> {
-  let path = logging::get_timestamped_path()?;
-  let mut log_stream: LogStream<f32> = LogStream::new(
-    &path.join(format!("{}.ebl", name)),
-    &format!("drive-core_{}", name))?;
-
-  // Log the variable's initial value
-  log_stream.log(*var.value())?;
-
-  var.add_listener(move |val| {
-    match log_stream.log(*val) {
-      Ok(()) => {},
-      Err(e) => println!("Failed to log value {}: {:?}", val, e)
-    }
-  });
-
-  Ok(())
-}
-
-fn connect_variable_with_channel(var: & mut Variable<f32>, channel: &mut Rc<RefCell<PwmChannel>>) {
+fn connect_variable_with_channel(var: & mut Variable<f32>, channel: &mut Rc<RefCell<PwmChannel>>, prescaler: f32) {
   let weak_ptr = Rc::downgrade(channel);
   var.add_listener(move |val| {
     match weak_ptr.upgrade() {
-      Some(rc) => rc.borrow_mut().set_value(*val).unwrap(),
+      Some(rc) => rc.borrow_mut().set_value(*val * prescaler).unwrap(),
       None => println!("Failed to de-reference the weak reference to the PWM channel :|")
     }
   });
@@ -95,8 +76,8 @@ fn main() {
   create_log_for(&mut steering, "steering").unwrap();
   create_log_for(&mut throttle, "throttle").unwrap();
 
-  connect_variable_with_channel(&mut steering, &mut device.steering);
-  connect_variable_with_channel(&mut throttle, &mut device.throttle);
+  connect_variable_with_channel(&mut steering, &mut device.steering, -1_f32);
+  connect_variable_with_channel(&mut throttle, &mut device.throttle, 1_f32);
 
   steering.add_listener(|v| println!("steering: {}", v));
   throttle.add_listener(|v| println!("throttle: {}", v));

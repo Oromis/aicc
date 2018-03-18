@@ -12,3 +12,4 @@ extern crate tempdir;
 
 pub mod logging;
 pub mod timing;
+pub mod variable;
