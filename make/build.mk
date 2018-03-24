@@ -36,7 +36,9 @@ endif
 ifdef exe
 # Flashes the project to the target board, building it beforehand if necessary.
 flash: build
+ifeq "$(for_target)" "true"
 	@ssh $(host) "mkdir -p $(target_dir)"
+endif
 
 # If we're a service, we try to stop an already running service on the target
 ifdef service
