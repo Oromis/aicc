@@ -63,15 +63,13 @@ fn main() {
   let mut devices: Vec<Box<InputDevice>> = Vec::new();
 
   // Open the keyboard event device
-  match matches.value_of("keyboard") {
-    Some(device) => devices.push(Box::new(KeyboardDevice::new(device))),
-    None => {}
+  if let Some(device) = matches.value_of("keyboard") {
+    devices.push(Box::new(KeyboardDevice::new(device)));
   }
 
   // Open the gamepad event device
-  match matches.value_of("gamepad") {
-    Some(device) => devices.push(Box::new(GamepadDevice::new(device))),
-    None => {}
+  if let Some(device) = matches.value_of("gamepad") {
+    devices.push(Box::new(GamepadDevice::new(device)));
   }
 
   if devices.len() == 0 {
