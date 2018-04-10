@@ -138,6 +138,8 @@ fn main() {
         MessageType::SetThrottle(val) => throttle.set_value(val),
         MessageType::Bye => {
           println!("Client logging out.");
+          steering.set_value(0f32);
+          throttle.set_value(0f32);
           break;
         },
       };
