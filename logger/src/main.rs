@@ -137,7 +137,6 @@ fn main() {
                     };
                   },
                   MessageType::Log(id, val) => {
-                    println!("Received log message for {}", &id);
                     match stream_manager.log(id, val) {
                       Ok(_) => {},
                       Err(e) => println!("Failed to write log message: {:?}", e)
