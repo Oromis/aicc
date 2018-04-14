@@ -12,7 +12,7 @@ use bincode::{ serialize, ErrorKind, deserialize_from };
 
 use mesh::Service;
 use logging::data_types::TypeInfo;
-use variable::Variable;
+use variable::{ Variable, ListenerError };
 use messages::logger::MessageType;
 
 pub struct LogConnection {
@@ -69,6 +69,10 @@ impl LogConnection {
         Ok(msg) => {
           match socket.borrow_mut().write(&msg[..]) {
             Ok(_) => {},
+            Err(ref e) if e.kind() == io::ErrorKind::ConnectionReset
+              || e.kind() == io::ErrorKind::BrokenPipe => {
+              return Err(ListenerError::RemoveListener);
+            }
             // Don't crash the program in case of an error, just write something to the console.
             // Logging is not ciritcal.
             Err(e) => println!("Failed to send log message: {:?}", e),
@@ -77,7 +81,8 @@ impl LogConnection {
         Err(e) => {
           println!("Failed to serialize log message: {:?}", e);
         }
-      }
+      };
+      Ok(())
     });
 
 //  let path = logging::get_timestamped_path()?;

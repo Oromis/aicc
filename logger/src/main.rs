@@ -3,10 +3,8 @@ extern crate serde_derive;
 
 extern crate serde;
 extern crate bincode;
-extern crate bufstream;
 extern crate byteorder;
 extern crate chrono;
-extern crate tokio;
 extern crate mio;
 
 extern crate messages;
@@ -104,6 +102,8 @@ fn main() {
                                   Ready::readable(),
                                   PollOpt::edge()).unwrap();
 
+                    println!("New client connected with token {:?}", token);
+
                     // Store the socket
                     clients.insert(token, socket);
                   },
@@ -122,6 +122,7 @@ fn main() {
         },
         token => {
           // Always operate in a loop
+          let mut remove_socket = false;
           loop {
             let mut socket = clients.get_mut(&token).unwrap();
             let result: Result<MessageType> = deserialize_from(&mut socket);
@@ -129,12 +130,14 @@ fn main() {
               Ok(msg) => {
                 match msg {
                   MessageType::Register(name, typename) => {
+                    println!("Registering variable {}", &name);
                     match register_stream(name, typename, socket, &mut stream_manager) {
                       Ok(_) => {},
                       Err(e) => println!("Failed to register log stream: {:?}", e)
                     };
                   },
                   MessageType::Log(id, val) => {
+                    println!("Received log message for {}", &id);
                     match stream_manager.log(id, val) {
                       Ok(_) => {},
                       Err(e) => println!("Failed to write log message: {:?}", e)
@@ -149,15 +152,23 @@ fn main() {
                   bincode::ErrorKind::Io(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                     // Socket is not ready anymore, stop reading
                     break;
-                  }
-                  // TODO detect closed socket
-                  //clients.remove(&token);
+                  },
+                  bincode::ErrorKind::Io(ref e) if e.kind() == io::ErrorKind::UnexpectedEof => {
+                    // Socket closed => Drop client
+                    remove_socket = true;
+                    break;
+                  },
                   e => {
                     panic!("Unexpected socket error. {:?}", e);
                   }
                 }
               }
             }
+          }
+
+          if remove_socket {
+            println!("Dropping socket for token {:?}", &token);
+            clients.remove(&token);
           }
         }
       }

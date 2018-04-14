@@ -112,6 +112,7 @@ dependencies = [
  "ctrlc 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "i2cdev 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "messages 0.1.0",
+ "rand 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.29 (registry+https://github.com/rust-lang/crates.io-index)",
  "util 0.1.0",
 ]

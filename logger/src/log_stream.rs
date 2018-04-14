@@ -67,6 +67,7 @@ impl<T> LogStream<T> where T: TypeInfo + Serialize {
 
 impl<T> LogStreamBase for LogStream<T> where T: TypeInfo + Serialize {
   fn log_generic(&mut self, val: f32) -> io::Result<()> {
+    println!("Logging {}", &val);
     self.log(T::from_f32(val))
   }
 }

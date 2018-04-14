@@ -50,7 +50,8 @@ fn connect_variable_with_channel(var: & mut Variable<f32>, channel: &mut Rc<RefC
     match weak_ptr.upgrade() {
       Some(rc) => rc.borrow_mut().set_value(*val * prescaler).unwrap(),
       None => println!("Failed to de-reference the weak reference to the PWM channel :|")
-    }
+    };
+    Ok(())
   });
 }
 
@@ -80,8 +81,8 @@ fn main() {
   connect_variable_with_channel(&mut steering, &mut device.steering, -1_f32);
   connect_variable_with_channel(&mut throttle, &mut device.throttle, 1_f32);
 
-  steering.add_listener(|v| println!("steering: {}", v));
-  throttle.add_listener(|v| println!("throttle: {}", v));
+  steering.add_listener(|v| { println!("steering: {}", v); Ok(()) });
+  throttle.add_listener(|v| { println!("throttle: {}", v); Ok(()) });
 
   // Set up a listening network socket to receive new connections on.
   // The drive-core service is controlled by such network
