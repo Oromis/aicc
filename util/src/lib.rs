@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate serde_derive;
 extern crate serde;
 extern crate bincode;
 extern crate byteorder;
@@ -10,6 +8,9 @@ extern crate lazy_static;
 
 extern crate tempdir;
 
+extern crate messages;
+
 pub mod logging;
+pub mod mesh;
 pub mod timing;
 pub mod variable;

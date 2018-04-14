@@ -6,6 +6,7 @@ extern crate serde;
 extern crate bincode;
 extern crate clap;
 extern crate joy;
+extern crate util;
 
 mod input_device;
 mod inputs;
@@ -14,7 +15,7 @@ mod gamepad_device;
 
 use std::thread;
 use std::time;
-use std::net::{ TcpStream };
+use std::net::TcpStream;
 use std::io::{ Write };
 
 use clap::{ Arg, App };
@@ -24,6 +25,7 @@ use messages::drive_core::MessageType;
 use input_device::InputDevice;
 use keyboard_device::KeyboardDevice;
 use gamepad_device::GamepadDevice;
+use util::mesh::Service;
 
 const MIN_SEND_INTERVAL: time::Duration = time::Duration::from_millis(50);
 
@@ -79,8 +81,8 @@ fn main() {
 
   let mut host = matches.value_of("host").unwrap().to_owned();
 
-  // Add the default port (AICC 0 in leetspeak)
-  host.push_str(":41330");
+  host.push_str(":");
+  host.push_str(&Service::DriveCore.port().to_string());
 
   println!("Connecting to {}", &host);
 

@@ -1,0 +1,10 @@
+[Unit]
+Description=AICC logging service
+
+[Service]
+Type=simple
+User=nvidia
+ExecStart=/home/nvidia/aicc/logger/logger
+
+[Install]
+WantedBy=multi-user.target

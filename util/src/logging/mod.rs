@@ -1,123 +1,100 @@
 pub mod data_types;
-pub mod connect;
 
-use self::data_types::TypeInfo;
-use super::timing::milliseconds;
-
-use std::fs;
-use std::fs::File;
-use std::path::{ Path, PathBuf };
-use std::time::{ SystemTime, UNIX_EPOCH };
 use std::io;
-use std::io::Write;
-use std::marker::{ PhantomData };
+use std::io::{ Write };
+use std::net::{ TcpStream };
+use std::fmt::Display;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use serde::Serialize;
-use bincode::serialize;
-use byteorder::*;
-use chrono::Local;
+use bincode::{ serialize, ErrorKind, deserialize_from };
 
-pub struct LogStream<T> {
-  file: File,
-  _p: PhantomData<T>,
+use mesh::Service;
+use logging::data_types::TypeInfo;
+use variable::Variable;
+use messages::logger::MessageType;
+
+pub struct LogConnection {
+  socket: Rc<RefCell<TcpStream>>,
 }
 
-#[derive(Serialize, Debug)]
-struct LogRecord<T> {
-  time: f32,
-  value: T,
-}
+impl LogConnection {
+  pub fn new() -> io::Result<LogConnection> {
+    let addr = "localhost:".to_owned() + &Service::Logger.port().to_string();
+    let socket = TcpStream::connect(addr)?;
 
-impl<T> LogStream<T> where T: TypeInfo + Serialize {
-  pub fn new(path: &Path, name: &str) -> io::Result<LogStream<T>> {
-    let mut file = File::create(path)?;
-
-    // Write file header:
-    // Version
-    file.write_i32::<LittleEndian>(1 << 16)?;
-
-    // ID (not used by us at the moment)
-    file.write_u16::<LittleEndian>(0)?;
-
-    // Name
-    file.write_u16::<LittleEndian>(name.len() as u16)?;
-    file.write_all(name.as_bytes())?;
-
-    // Type
-    let type_str = T::type_str();
-    file.write_u16::<LittleEndian>(type_str.len() as u16)?;
-    file.write_all(type_str.as_bytes())?;
-
-    // Time
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
-    file.write_u64::<LittleEndian>(now.as_secs())?;
-
-    // Tags - we don't use them (yet?)
-    file.write_u16::<LittleEndian>(0)?;
-
-    Ok(LogStream { file, _p: PhantomData })
+    Ok(LogConnection { socket: Rc::new(RefCell::new(socket)) })
   }
 
-  pub fn log(&mut self, value: T) -> io::Result<()> {
-    let record = LogRecord { time: milliseconds(), value };
-    Ok(self.file.write_all(&serialize(&record).unwrap())?)
-  }
-}
+  pub fn log_variable<'a, T>(&mut self, var: &mut Variable<'a, T>, name: &str) -> io::Result<()>
+    where T: PartialEq + TypeInfo + Serialize + Display + Copy + Into<f32> + 'a {
+    // Attempt to register our log variable with the logging service
+    match serialize(&MessageType::Register(name.to_string(), T::type_str().to_string())) {
+      Ok(msg) => {
+        self.socket.borrow_mut().write(&msg[..])?;
+      },
+      Err(e) => {
+        match *e {
+          ErrorKind::Io(err) => return Err(err),
+          _ => return Err(io::Error::new(io::ErrorKind::Other, *e))
+        }
+      }
+    }
 
-pub fn get_timestamped_path() -> io::Result<PathBuf> {
-  let time = Local::now().format("%Y-%m-%d_%H-%M").to_string();
-  let path = Path::new("/var/log/aicc").join(time);
-  fs::create_dir_all(&path)?;
-  Ok(path)
-}
+    // Wait for the response
+    let msg: MessageType = match deserialize_from(&mut *self.socket.borrow_mut()) {
+      Ok(msg) => msg,
+      Err(e) => {
+        match *e {
+          ErrorKind::Io(err) => return Err(err),
+          _ => return Err(io::Error::new(io::ErrorKind::Other, *e))
+        }
+      }
+    };
 
-#[cfg(test)]
-mod tests {
-  use super::*;
-  use std::io::Read;
-  use tempdir::TempDir;
+    // Got the response => handle it
+    let log_id = match msg {
+      // All fine, we got accepted and here is our ID
+      MessageType::Acknowledge(id) => id,
+      _ => return Err(io::Error::new(
+        io::ErrorKind::Other, "Unexpected response from logging service"))
+    };
 
-  #[test]
-  fn it_creates_and_opens_a_new_file() {
-    let tmp = TempDir::new("log").unwrap();
-    let file_name = "file.log";
-    let var_name = "test_var";
+    let socket = self.socket.clone();
 
-    assert!(!tmp.path().join(file_name).exists());
-    let mut stream: LogStream<i32> = LogStream::new(&tmp.path().join(file_name), var_name).unwrap();
-    assert!(tmp.path().join(file_name).exists());
+    // Attach a logging listener to our variable
+    var.add_listener(move |val| {
+      match serialize(&MessageType::Log(log_id, (*val).into())) {
+        Ok(msg) => {
+          match socket.borrow_mut().write(&msg[..]) {
+            Ok(_) => {},
+            // Don't crash the program in case of an error, just write something to the console.
+            // Logging is not ciritcal.
+            Err(e) => println!("Failed to send log message: {:?}", e),
+          };
+        },
+        Err(e) => {
+          println!("Failed to serialize log message: {:?}", e);
+        }
+      }
+    });
 
-    // Make sure that the byte layout is correct
-    let mut reader = File::open(tmp.path().join(file_name)).unwrap();
+//  let path = logging::get_timestamped_path()?;
+//  let mut log_stream: LogStream<T> = LogStream::new(
+//    &path.join(format!("{}.ebl", name)),
+//    &format!("drive-core_{}", name))?;
+//
+//  // Log the variable's initial value
+//  log_stream.log(*var.value())?;
+//
+//  var.add_listener(move |val| {
+//    match log_stream.log(*val) {
+//      Ok(()) => {},
+//      Err(e) => println!("Failed to log value {}: {:?}", val, e)
+//    }
+//  });
 
-    // Version
-    assert_eq!(1 << 16, reader.read_i32::<LittleEndian>().unwrap());
-
-    // ID
-    assert_eq!(0, reader.read_u16::<LittleEndian>().unwrap());
-
-    // Name
-    assert_eq!(var_name.len(), reader.read_u16::<LittleEndian>().unwrap() as usize);
-
-    let mut name_buffer = vec![0; var_name.len()];
-    reader.read_exact(&mut name_buffer).unwrap();
-    assert_eq!(var_name.as_bytes(), &name_buffer[..]);
-
-    assert_eq!(3, reader.read_u16::<LittleEndian>().unwrap() as usize);
-
-    let mut type_buffer = vec![0; "int".len()];
-    reader.read_exact(&mut type_buffer).unwrap();
-    assert_eq!("int".as_bytes(), &type_buffer[..]);
-
-    let timestamp = reader.read_u64::<LittleEndian>().unwrap();
-    assert!(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - timestamp <= 1);
-
-    assert_eq!(0, reader.read_u16::<LittleEndian>().unwrap());
-
-    // Write something to the file and make sure the layout is correct
-    stream.log(42).unwrap();
-
-    assert!((reader.read_f32::<LittleEndian>().unwrap() - milliseconds()).abs() <= 10_f32);
-    assert_eq!(42, reader.read_i32::<LittleEndian>().unwrap());
+    Ok(())
   }
 }

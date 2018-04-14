@@ -25,15 +25,12 @@ impl InputDevice for GamepadDevice {
           match n {
             0 => {
               inputs.steering = (value as f32) / (0x7FFF as f32);
-//              println!("axis 0: {}\r", inputs.steering);
             }
             4 => {
               throttle = ((value as i32 + 0x7FFF_i32) as f32) / (0xFFFF as f32);
-//              println!("axis 4: {}\r", inputs.throttle);
             }
             5 => {
               brake = -((value as i32 + 0x7FFF_i32) as f32) / (0xFFFF as f32);
-//              println!("axis 5: {}\r", inputs.throttle);
             }
             _ => {}
           }

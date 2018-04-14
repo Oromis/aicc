@@ -13,8 +13,9 @@ mod pwm_driver;
 
 use pwm_driver::*;
 use messages::drive_core::MessageType;
-use util::logging::connect::create_log_for;
 use util::variable::Variable;
+use util::logging::LogConnection;
+use util::mesh::Service;
 
 use std::net::*;
 use std::io;
@@ -72,9 +73,9 @@ fn main() {
     }
   }).unwrap();
 
-
-  create_log_for(&mut steering, "steering").unwrap();
-  create_log_for(&mut throttle, "throttle").unwrap();
+  let mut log_connection = LogConnection::new().unwrap();
+  log_connection.log_variable(&mut steering, "drive-core_steering").unwrap();
+  log_connection.log_variable(&mut throttle, "drive-core_throttle").unwrap();
 
   connect_variable_with_channel(&mut steering, &mut device.steering, -1_f32);
   connect_variable_with_channel(&mut throttle, &mut device.throttle, 1_f32);
@@ -85,11 +86,12 @@ fn main() {
   // Set up a listening network socket to receive new connections on.
   // The drive-core service is controlled by such network
   // connections only (they may come from localhost).
-  let listener = TcpListener::bind("0.0.0.0:41330").unwrap();
+  let listener = TcpListener::bind("0.0.0.0:".to_string() + &Service::DriveCore.port().to_string())
+    .unwrap();
   listener.set_nonblocking(true).unwrap();
 
   // Set a handler to listen for the Ctrl+C key sequence and perform a
-  // clean shutdown if it happens.
+  // clean shutdown if it fires.
   ctrlc::set_handler(move || {
     RUNNING.store(false, Ordering::SeqCst);
   }).unwrap();

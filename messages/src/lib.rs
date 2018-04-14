@@ -4,3 +4,4 @@ extern crate serde;
 extern crate bincode;
 
 pub mod drive_core;
+pub mod logger;
