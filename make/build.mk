@@ -11,6 +11,7 @@ for_target ?= true
 for_host ?= false
 
 project_name ?= $(shell basename $(shell pwd))
+service_name ?= $(project_name)
 
 target_dir = $(base_dir)/$(project_name)
 
@@ -42,14 +43,14 @@ endif
 
 # If we're a service, we try to stop an already running service on the target
 ifdef service
-	@ssh $(host) "sudo service $(project_name) stop"
+	@ssh $(host) "sudo service $(service_name) stop"
 endif
 
 	@scp $(build_dir)/$(exe) $(host):$(target_dir)
 
 # If we're a service, we try to start the service after flashing
 ifdef service
-	@ssh $(host) "sudo service $(project_name) start"
+	@ssh $(host) "sudo service $(service_name) start"
 endif
 
 # Runs the project executable on the target board (using an SSH tunnel).
@@ -62,8 +63,9 @@ endif
 # Binary is a system service
 ifdef service
 service_filename = $(shell basename $(service))
-install: flash $(service)
+install: $(service)
 # Copy the service file to the target
+	@echo "scp $(service) $(host):$(target_dir)"
 	@scp $(service) $(host):$(target_dir)
 # Connect to the target and install the service file into the operating system
 	@ssh $(host) "sudo systemctl enable $(target_dir)/$(service_filename); sudo systemctl daemon-reload"

@@ -4,6 +4,7 @@ extern crate ctrlc;
 extern crate serde;
 extern crate bincode;
 extern crate bufstream;
+extern crate sysfs_gpio;
 
 extern crate messages;
 extern crate util;
@@ -26,6 +27,7 @@ use std::sync::atomic::{ AtomicBool, Ordering };
 
 use bufstream::BufStream;
 use bincode::deserialize_from;
+use sysfs_gpio::{Direction, Pin};
 
 const PWM_DRIVER_ADDRESS: u16 = 0x40;
 const PWM_FREQUENCY: f32 = 50f32;
@@ -44,7 +46,9 @@ fn accept_connection(listener: &TcpListener) -> io::Result<BufStream<TcpStream>>
   return Ok(BufStream::new(socket));
 }
 
-fn connect_variable_with_channel(var: & mut Variable<f32>, channel: &mut Rc<RefCell<PwmChannel>>, prescaler: f32) {
+fn connect_variable_with_channel(var: & mut Variable<f32>,
+                                 channel: &mut Rc<RefCell<PwmChannel>>,
+                                 prescaler: f32) {
   let weak_ptr = Rc::downgrade(channel);
   var.add_listener(move |val| {
     match weak_ptr.upgrade() {
@@ -90,6 +94,10 @@ fn main() {
   let listener = TcpListener::bind("0.0.0.0:".to_string() + &Service::DriveCore.port().to_string())
     .unwrap();
   listener.set_nonblocking(true).unwrap();
+
+  let enable_pin = Pin::new(255);
+  enable_pin.export().expect("Failed to export enable PIN");
+  enable_pin.set_direction(Direction::Low).expect("Failed to pull enable Pin low");
 
   // Set a handler to listen for the Ctrl+C key sequence and perform a
   // clean shutdown if it fires.
@@ -148,5 +156,7 @@ fn main() {
       };
     }
   }
+
+  enable_pin.unexport().unwrap();
 }
 
